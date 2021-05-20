@@ -1,0 +1,18 @@
+//Name of the attack
+Name:fireball_demo
+//Fatigue points dealt points
+Damage:3
+//Disappear after damage (will the bullet disappear after inflicting damage)
+Disappear:1
+//Velocity (pixels per second)
+Speed:20
+//Dialogue
+Dialog:Eat my fireball effect Pl...Bell!
+//Texture(s) (# is for animation loading)
+Texture:fireball/#
+//Texture interchange rate (how many texture changes per second)
+AnimationRate:3
+//Start sound
+StartSound:fireball_launch
+//Hit sound
+HitSound:fireball_hit
