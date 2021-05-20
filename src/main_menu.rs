@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+use crate::GameState;
+
 pub struct ButtonMaterials {
 	normal: Handle<ColorMaterial>,
 	hovered: Handle<ColorMaterial>,
@@ -22,11 +24,14 @@ pub fn button_system(
 		(&Interaction, &mut Handle<ColorMaterial>),
 		(Changed<Interaction>, With<Button>),
 	>,
+	mut state: ResMut<State<GameState>>,
 ) {
 	for (interaction, mut material) in interaction_query.iter_mut() {
 		match *interaction {
 			Interaction::Clicked => {
 				*material = button_materials.pressed.clone();
+				state.set(GameState::InGame).unwrap();
+
 			}
 			Interaction::Hovered => {
 				*material = button_materials.hovered.clone();
@@ -44,11 +49,6 @@ pub struct MenuItem;
 pub fn text_rotation(mut query: Query<&mut Transform, With<TitleText>>, time: Res<Time>) {
 	let mut text_transform = query.single_mut().unwrap();
 	text_transform.rotation = Quat::from_rotation_z(time.seconds_since_startup().cos() as f32 * 20.0);
-}
-
-pub struct Components {
-	title_text: Entity,
-	button: Entity,
 }
 
 pub fn setup(
@@ -81,8 +81,10 @@ pub fn setup(
 		.spawn_bundle(ButtonBundle {
 			style: Style {
 				size: Size::new(Val::Px(280.0), Val::Px(80.0)),
-				// center button
-				margin: Rect::all(Val::Auto),
+				align_self: AlignSelf::Center,
+				flex_direction: FlexDirection::Column,
+				//position_type: PositionType::Absolute,
+				//position: Rect { top: Val::Percent(60.0), left: Val::Percent(50.0), ..Default::default() },
 				// horizontally center child text
 				justify_content: JustifyContent::Center,
 				// vertically center child text
