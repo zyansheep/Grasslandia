@@ -56,9 +56,20 @@ pub fn setup(
 	asset_server: Res<AssetServer>,
 	button_materials: Res<ButtonMaterials>,
 ) {
-	// Main Menu Text
-	commands
-		.spawn_bundle(Text2dBundle {
+	// Main Menu Container
+	commands.spawn_bundle(NodeBundle {
+		style: Style {
+			size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+			justify_content: JustifyContent::Center,
+			align_items: AlignItems::Center,
+			flex_direction: FlexDirection::ColumnReverse,
+			..Default::default()
+		},
+		//material: materials.add(Color::rgba_u8(0, 0, 0, 120).into()),
+		..Default::default()
+	}).with_children(|cb| {
+		// Title Text
+		cb.spawn_bundle(TextBundle {
 			text: Text::with_section(
 				"Grasslandia",
 				TextStyle {
@@ -66,36 +77,31 @@ pub fn setup(
 					font_size: 60.0,
 					color: Color::BLACK,
 				},
-				TextAlignment {
+				/* TextAlignment {
 					vertical: VerticalAlign::Center,
 					horizontal: HorizontalAlign::Center,
-				},
+				}, */
+				Default::default()
 			),
+			style: Style {
+				//align_self: AlignSelf::Auto,
+				..Default::default()
+			},
 			..Default::default()
-		})
-    	.insert(MenuItem)
-		.insert(TitleText);
-
-	// Main Button
-	commands
-		.spawn_bundle(ButtonBundle {
+		}).insert(TitleText);
+		// Main Button
+		cb.spawn_bundle(ButtonBundle {
 			style: Style {
 				size: Size::new(Val::Px(280.0), Val::Px(80.0)),
-				align_self: AlignSelf::Center,
-				flex_direction: FlexDirection::Column,
-				//position_type: PositionType::Absolute,
-				//position: Rect { top: Val::Percent(60.0), left: Val::Percent(50.0), ..Default::default() },
-				// horizontally center child text
-				justify_content: JustifyContent::Center,
-				// vertically center child text
 				align_items: AlignItems::Center,
+				justify_content: JustifyContent::Center,
+				//align_self: AlignSelf::FlexEnd,
 				..Default::default()
 			},
 			material: button_materials.normal.clone(),
 			..Default::default()
-		})
-		.with_children(|parent| {
-			parent.spawn_bundle(TextBundle {
+		}).with_children(|cb| {
+			cb.spawn_bundle(TextBundle {
 				text: Text::with_section(
 					"Start Game",
 					TextStyle {
@@ -103,11 +109,13 @@ pub fn setup(
 						font_size: 40.0,
 						color: Color::rgb(0.9, 0.9, 0.9),
 					},
-					Default::default(),
+					//TextAlignment { vertical: VerticalAlign::Center, horizontal: HorizontalAlign::Center },
+					Default::default()
 				),
 				..Default::default()
 			});
-		}).insert(MenuItem);
+		});
+	}).insert(MenuItem);
 }
 pub fn exit(mut commands: Commands, items: Query<Entity, With<MenuItem>>) {
 	for entity in items.iter() {

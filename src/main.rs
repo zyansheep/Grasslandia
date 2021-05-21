@@ -14,7 +14,7 @@ pub enum GameState {
 fn main() {
 	App::build()
 		.add_plugins(DefaultPlugins)
-		.add_state(GameState::InGame)
+		.add_state(GameState::MainMenu)
 		// Main Menu
 		.init_resource::<main_menu::ButtonMaterials>()
 		.add_system_set(
