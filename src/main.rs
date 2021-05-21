@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use bevy::prelude::*;
+use bevy::{prelude::*, window::WindowResizeConstraints};
 
 mod main_menu;
 
@@ -13,6 +13,14 @@ pub enum GameState {
 
 fn main() {
 	App::build()
+		.insert_resource(WindowDescriptor {
+			title: "Grasslandia".to_string(),
+			width: 600.,
+			height: 600.,
+			vsync: true,
+			resize_constraints: WindowResizeConstraints { min_height: 400.0, min_width: 400.0, ..Default::default() },
+			..Default::default()
+		})
 		.add_plugins(DefaultPlugins)
 		.add_state(GameState::MainMenu) // Starting Game State
 		// Main Menu
@@ -20,7 +28,6 @@ fn main() {
 		.add_system_set(
 			SystemSet::on_enter(GameState::MainMenu).with_system(main_menu::setup.system()),
 		)
-    	.add_system_to_stage(CoreStage::PostUpdate, main_menu::text_rotation.system())
 		.add_system_set(
 			SystemSet::on_update(GameState::MainMenu)
 				.with_system(main_menu::button_system.system())

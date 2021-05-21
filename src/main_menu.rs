@@ -46,16 +46,24 @@ pub fn button_system(
 pub struct TitleText;
 pub struct MenuItem;
 
-pub fn text_rotation(mut query: Query<&mut GlobalTransform, With<TitleText>>, time: Res<Time>) {
+/* pub fn text_rotation(mut query: Query<&mut GlobalTransform, With<TitleText>>, time: Res<Time>) {
 	let mut text_transform = query.single_mut().unwrap();
 	text_transform.rotation = Quat::from_rotation_z(time.seconds_since_startup().cos() as f32);
-}
+} */
 
 pub fn setup(
 	mut commands: Commands,
 	asset_server: Res<AssetServer>,
 	button_materials: Res<ButtonMaterials>,
+	mut windows: ResMut<Windows>,
 ) {
+	// Set random splash
+	use rand::seq::IteratorRandom;
+	use std::io::{BufRead, BufReader};
+	let random_splash = BufReader::new(std::fs::File::open("assets/game/splashes.txt").unwrap()).lines().choose(&mut rand::thread_rng()).unwrap().unwrap();
+	windows.get_primary_mut().unwrap().set_title(format!("Grasslandia: {}", random_splash));
+	//let splashes = asset_server.load("game/splashes.txt");
+
 	// Main Menu Container
 	commands.spawn_bundle(NodeBundle {
 		style: Style {
