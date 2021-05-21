@@ -46,9 +46,9 @@ pub fn button_system(
 pub struct TitleText;
 pub struct MenuItem;
 
-pub fn text_rotation(mut query: Query<&mut Transform, With<TitleText>>, time: Res<Time>) {
+pub fn text_rotation(mut query: Query<&mut GlobalTransform, With<TitleText>>, time: Res<Time>) {
 	let mut text_transform = query.single_mut().unwrap();
-	text_transform.rotation = Quat::from_rotation_z(time.seconds_since_startup().cos() as f32 * 20.0);
+	text_transform.rotation = Quat::from_rotation_z(time.seconds_since_startup().cos() as f32);
 }
 
 pub fn setup(

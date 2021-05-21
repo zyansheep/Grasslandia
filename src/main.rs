@@ -14,18 +14,21 @@ pub enum GameState {
 fn main() {
 	App::build()
 		.add_plugins(DefaultPlugins)
-		.add_state(GameState::MainMenu)
+		.add_state(GameState::MainMenu) // Starting Game State
 		// Main Menu
 		.init_resource::<main_menu::ButtonMaterials>()
 		.add_system_set(
 			SystemSet::on_enter(GameState::MainMenu).with_system(main_menu::setup.system()),
 		)
+    	.add_system_to_stage(CoreStage::PostUpdate, main_menu::text_rotation.system())
 		.add_system_set(
 			SystemSet::on_update(GameState::MainMenu)
 				.with_system(main_menu::button_system.system())
-				.with_system(main_menu::text_rotation.system()),
+				//.with_system(main_menu::text_rotation.system()),
 		)
-    	.add_system_set(SystemSet::on_exit(GameState::MainMenu).with_system(main_menu::exit.system()))
+		.add_system_set(
+			SystemSet::on_exit(GameState::MainMenu).with_system(main_menu::exit.system()),
+		)
 		// Game State
 		.add_system_set(SystemSet::on_enter(GameState::InGame).with_system(setup_game.system()))
 		.add_system_set(
@@ -33,19 +36,13 @@ fn main() {
 				.with_system(update_game.system())
 				.with_system(player_movement.system()),
 		)
-		.add_system_set(
-			SystemSet::on_pause(GameState::InGame) // Inactive background
-				//.with_system(pause_menu.system()),
-		)
-		/* .add_system_set(
-			SystemSet::on_resume(GameState::InGame) // Resume setup
-				.with_system(reset_player.system())
-		) */
-		//.add_startup_system(setup.system())
-		/*     	.add_startup_system(print_resources.system()) */
 		// Pause Menu
-		.add_system_set(SystemSet::on_enter(GameState::Paused).with_system(pause_menu_setup.system()))
-		.add_system_set(SystemSet::on_update(GameState::Paused).with_system(pause_menu_update.system()))
+		.add_system_set(
+			SystemSet::on_enter(GameState::Paused).with_system(pause_menu_setup.system()),
+		)
+		.add_system_set(
+			SystemSet::on_update(GameState::Paused).with_system(pause_menu_update.system()),
+		)
 		.add_system_set(SystemSet::on_exit(GameState::Paused).with_system(pause_menu_exit.system()))
 		// Universal Systems
 		.add_startup_system(main_setup.system())
@@ -73,45 +70,25 @@ fn setup_game(
 	log::info!("Wake up...");
 }
 
-fn update_game(/* time: Res<Time>, mut query: Query<&mut Transform, With<Text>> */) {
-	/* for mut transform in query.iter_mut() {
-		transform.rotation = Quat::from_rotation_z(time.seconds_since_startup().cos() as f32);
-	} */
-}
-/* fn print_resources(archetypes: &Archetypes, components: &Components) {
-	let mut r: Vec<String> = archetypes
-		.resource()
-		.components()
-		.map(|id| components.get_info(id).unwrap())
-		// get_short_name removes the path information
-		// i.e. `bevy_audio::audio::Audio` -> `Audio`
-		// if you want to see the path info replace
-		// `TypeRegistration::get_short_name` with `String::from`
-		.map(|info| TypeRegistration::get_short_name(info.name()))
-		.collect();
-
-	// sort list alphebetically
-	r.sort();
-	r.iter().for_each(|name| println!("{}", name));
-} */
+fn update_game() {}
 fn player_movement(
 	mut camera_transform: Query<&mut Transform, With<MainCamera>>,
 	keys: Res<Input<KeyCode>>,
 	//mut player: Query<&mut Transform, With<Player>>,
 ) {
 	let mut camera_transform = camera_transform.single_mut().unwrap();
-
+	let speed = 10.0;
 	if keys.pressed(KeyCode::Up) {
-		camera_transform.translation.y += 1.0;
+		camera_transform.translation.y += speed;
 	}
 	if keys.pressed(KeyCode::Down) {
-		camera_transform.translation.y -= 1.0;
+		camera_transform.translation.y -= speed;
 	}
 	if keys.pressed(KeyCode::Left) {
-		camera_transform.translation.x -= 1.0;
+		camera_transform.translation.x -= speed;
 	}
 	if keys.pressed(KeyCode::Right) {
-		camera_transform.translation.x += 1.0;
+		camera_transform.translation.x += speed;
 	}
 }
 
@@ -188,37 +165,43 @@ fn pause_menu_setup(
 	mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
 	let main_font = asset_server.load("fonts/font.ttf");
-	commands.spawn_bundle(NodeBundle {
-		style: Style {
-			size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-			justify_content: JustifyContent::Center,
-			align_items: AlignItems::Center,
-			flex_direction: FlexDirection::Column,
-			..Default::default()
-		},
-		material: materials.add(Color::rgba_u8(0, 0, 0, 120).into()),
-		..Default::default()
-	}).with_children(|cb| {
-		cb.spawn_bundle(TextBundle {
-			text: Text::with_section(
-				"Game\nPaused",
-				TextStyle {
-					font: main_font,
-					font_size: 50.0,
-					color: Color::WHITE,
-				},
-				TextAlignment { vertical: VerticalAlign::Center, horizontal: HorizontalAlign::Center },
-			),
+	commands
+		.spawn_bundle(NodeBundle {
 			style: Style {
+				size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+				justify_content: JustifyContent::Center,
+				align_items: AlignItems::Center,
+				flex_direction: FlexDirection::Column,
 				..Default::default()
 			},
+			material: materials.add(Color::rgba_u8(0, 0, 0, 120).into()),
 			..Default::default()
-		});
-	}).insert(PauseMenuItem);
+		})
+		.with_children(|cb| {
+			cb.spawn_bundle(TextBundle {
+				text: Text::with_section(
+					"Game\nPaused",
+					TextStyle {
+						font: main_font,
+						font_size: 50.0,
+						color: Color::WHITE,
+					},
+					TextAlignment {
+						vertical: VerticalAlign::Center,
+						horizontal: HorizontalAlign::Center,
+					},
+				),
+				style: Style {
+					..Default::default()
+				},
+				..Default::default()
+			});
+		})
+		.insert(PauseMenuItem);
 }
-fn pause_menu_update() {
-
-}
+fn pause_menu_update() {}
 fn pause_menu_exit(mut commands: Commands, items: Query<Entity, With<PauseMenuItem>>) {
-	for item in items.iter() { commands.entity(item).despawn_recursive() }
+	for item in items.iter() {
+		commands.entity(item).despawn_recursive()
+	}
 }
