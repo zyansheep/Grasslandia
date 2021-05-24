@@ -1,11 +1,8 @@
-use std::collections::HashMap;
+#![allow(dead_code)]
+
+use std::{collections::HashMap, path::Path};
 use ndarray::Array3;
-use bevy::{
-    asset::{AssetLoader, LoadContext, LoadedAsset},
-    prelude::*,
-    reflect::TypeUuid,
-    utils::BoxedFuture,
-};
+use bevy::{asset::{AssetLoader, AssetPath, LoadContext, LoadedAsset}, prelude::*, reflect::TypeUuid, utils::BoxedFuture};
 use anyhow::anyhow;
 
 #[derive(Debug)]
@@ -60,6 +57,8 @@ impl AssetLoader for LevelAssetLoader {
 			use std::io::BufRead;
 			let lines = bytes.lines().filter_map(|x|x.ok()).collect::<Vec<String>>();
 			
+			let mut dep_asset_paths: Vec<AssetPath<'_>> = Vec::new();
+
 			let mut dims = lines[1].split("x");
 			let dimensions = ndarray::Dim([
 				dims.next().ok_or(anyhow!("no dimensions"))?.parse::<usize>()?,
@@ -103,7 +102,10 @@ impl AssetLoader for LevelAssetLoader {
 						let value = split.next()?;
 						match key {
 							"vsize" => LevelFlags::VerticalSize(value.parse::<u32>().ok()?),
-							"sound" => LevelFlags::SoundFile(load_context.get_handle(value)),
+							"sound" => {
+								dep_asset_paths.push(Path::new(value).to_owned().into());
+								LevelFlags::SoundFile(load_context.get_handle(value))
+							},
 							_ => { LevelFlags::Unknown(value.to_owned()) }
 						}
 					}).collect::<Vec<LevelFlags>>()
@@ -116,7 +118,11 @@ impl AssetLoader for LevelAssetLoader {
 				blocks,
 			};
             //let custom_asset = ron::de::from_bytes::<CustomAsset>(bytes)?;
-            load_context.set_default_asset(LoadedAsset::new(level));
+			let loaded_asset = LoadedAsset::new(level);
+			//let loaded_asset = loaded_asset.with_dependencies(dep_asset_paths);
+            load_context.set_default_asset(loaded_asset);
+
+			log::info!("Loaded Level");
             Ok(())
         })
     }

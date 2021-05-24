@@ -1,12 +1,10 @@
 #![allow(non_snake_case)]
 #![feature(try_blocks)]
 
-#![macro_use] extern crate anyhow;
-
 use bevy::{prelude::*, window::WindowResizeConstraints};
 
-mod main_menu;
 mod level;
+mod main_menu;
 use level::LevelAsset;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -17,18 +15,22 @@ pub enum GameState {
 }
 
 fn main() {
+	env_logger::init();
 	App::build()
 		.insert_resource(WindowDescriptor {
 			title: "Grasslandia".to_string(),
 			width: 600.,
 			height: 600.,
 			vsync: true,
-			resize_constraints: WindowResizeConstraints { min_height: 400.0, min_width: 400.0, ..Default::default() },
+			resize_constraints: WindowResizeConstraints {
+				min_height: 400.0,
+				min_width: 400.0,
+				..Default::default()
+			},
 			..Default::default()
 		})
 		.add_plugins(DefaultPlugins)
 		.add_state(GameState::InGame) // Starting Game State
-
 		// Main Menu Systems
 		.init_resource::<main_menu::ButtonMaterials>()
 		.add_system_set(
@@ -36,24 +38,21 @@ fn main() {
 		)
 		.add_system_set(
 			SystemSet::on_update(GameState::MainMenu)
-				.with_system(main_menu::button_system.system())
-				//.with_system(main_menu::text_rotation.system()),
+				.with_system(main_menu::button_system.system()), //.with_system(main_menu::text_rotation.system()),
 		)
 		.add_system_set(
 			SystemSet::on_exit(GameState::MainMenu).with_system(main_menu::exit.system()),
 		)
-
 		// Game Systems
 		.add_asset::<level::LevelAsset>() // Level Asset
-        .init_asset_loader::<level::LevelAssetLoader>()
-    	.init_resource::<Levels>()
+		.init_asset_loader::<level::LevelAssetLoader>()
+		.init_resource::<InGameState>()
 		.add_system_set(SystemSet::on_enter(GameState::InGame).with_system(setup_game.system()))
 		.add_system_set(
 			SystemSet::on_update(GameState::InGame)
 				.with_system(update_game.system())
 				.with_system(player_movement.system()),
 		)
-
 		// Pause Menu
 		.add_system_set(
 			SystemSet::on_enter(GameState::Paused).with_system(pause_menu_setup.system()),
@@ -62,7 +61,6 @@ fn main() {
 			SystemSet::on_update(GameState::Paused).with_system(pause_menu_update.system()),
 		)
 		.add_system_set(SystemSet::on_exit(GameState::Paused).with_system(pause_menu_exit.system()))
-
 		// Universal Systems
 		.add_startup_system(main_setup.system())
 		.add_system(main_update.system())
@@ -70,21 +68,23 @@ fn main() {
 }
 
 #[derive(Default)]
-struct Levels {
+struct InGameState {
 	current_level: Handle<LevelAsset>,
-	next_level: Option<Handle<LevelAsset>>,
+	//next_level: Option<Handle<LevelAsset>>,
+	rendered: bool,
 }
 fn setup_game(
 	mut commands: Commands,
 	asset_server: Res<AssetServer>,
 	mut materials: ResMut<Assets<ColorMaterial>>,
-	mut levels: ResMut<Levels>,
+	mut state: ResMut<InGameState>,
 ) {
 	commands.spawn_bundle(SpriteBundle {
 		material: materials.add(asset_server.load("backgrounds/creepybackground.png").into()),
 		..Default::default()
 	});
-	levels.current_level = asset_server.load::<LevelAsset, _>("game/levels/level0.glevel");
+	state.current_level = asset_server.load::<LevelAsset, _>("game/levels/level0.glevel");
+	asset_server.watch_for_changes().unwrap();
 	/* commands
 	.spawn_bundle(SpriteSheetBundle {
 		texture_atlas: texture_atlas_handle,
@@ -97,13 +97,21 @@ fn setup_game(
 }
 
 fn update_game(
-	level_handles: Res<Levels>,
+	mut state: ResMut<InGameState>,
 	levels: Res<Assets<LevelAsset>>,
+	mut ev_level: EventReader<AssetEvent<LevelAsset>>
 ) {
-	if levels.is_added() {
-		println!("Level Changed");
-		if let Some(level) = levels.get(level_handles.current_level.clone()) {
-			println!("{:?}", level);
+	for ev in ev_level.iter() {
+		match ev {
+			AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
+				if let Some(level) = levels.get(handle) {
+					println!("Level Loaded: {:?}", level);
+					state.rendered = true;
+				} else {
+					println!("Level not loaded");
+				}
+			},
+			_ => { println!("Level removed"); },
 		}
 	}
 }
