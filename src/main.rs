@@ -51,8 +51,7 @@ fn main() {
 		.add_system_set(
 			SystemSet::on_update(GameState::InGame)
 				.with_system(update_game.system())
-				.with_system(player_movement.system())
-				.with_system(animate_player.system()),
+				.with_system(player_movement.system()),
 		)
 		// Pause Menu
 		.add_system_set(
@@ -100,14 +99,12 @@ fn setup_game(
 	commands
 		.spawn_bundle(SpriteSheetBundle {
 			texture_atlas: texture_atlas_handle,
-			transform: Transform::from_scale(Vec3::splat(1.0)),
+			transform: Transform::from_scale(Vec3::splat(6.0)),
 			..Default::default()
 		})
 		.insert(Timer::from_seconds(0.3, true))
-		.insert(Player { direction: 0 })
-		.with_children(|commands| {
-			commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-		});
+		.insert(Player { direction: 0 });
+	commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 
 	asset_server.watch_for_changes().unwrap();
 	log::info!("Wake up...");
