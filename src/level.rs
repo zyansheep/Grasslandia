@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use std::{collections::HashMap, path::Path};
+use bevy_tilemap::{Tilemap, prelude::GridTopology};
 use ndarray::Array3;
 use bevy::{asset::{AssetLoader, AssetPath, LoadContext, LoadedAsset}, prelude::*, reflect::TypeUuid, utils::BoxedFuture};
 use anyhow::anyhow;
@@ -21,7 +22,7 @@ pub enum BlockInteraction {
 #[derive(Debug)]
 pub struct Block {
 	pub interaction: BlockInteraction,
-	texture: Option<String>,
+	pub texture: Option<Handle<Texture>>,
 }
 #[derive(Debug)]
 pub enum LevelFlags {
@@ -41,6 +42,8 @@ pub struct LevelAsset {
 	pub tiles: Array3<usize>,
 	// List of all block types
 	pub blocks: Vec<Block>,
+	/// Store the tilemap
+	pub tilemap: Tilemap,
 }
 
 #[derive(Default)]
@@ -58,6 +61,7 @@ impl AssetLoader for LevelAssetLoader {
 			let lines = bytes.lines().filter_map(|x|x.ok()).collect::<Vec<String>>();
 			
 			let mut dep_asset_paths: Vec<AssetPath<'_>> = Vec::new();
+			// let texture_assets: Assets<Texture>::;
 
 			let mut dims = lines[1].split("x");
 			let dimensions = ndarray::Dim([
@@ -73,7 +77,7 @@ impl AssetLoader for LevelAssetLoader {
 				iden_map.insert(block_char, i); // Save to char map
 				let flags = split.next()?;
 				
-				let mut block_texture = Option::<String>::None;
+				let mut block_texture = None;
 				let mut block_interaction = BlockInteraction::Wall;
 				for flag in flags.split(",") {
 					let mut flag_split = flag.split("=");
@@ -82,7 +86,11 @@ impl AssetLoader for LevelAssetLoader {
 							block_interaction = BlockInteraction::Air;
 						},
 						"texture" => {
-							block_texture = flag_split.next().map(&str::to_owned);
+							if let Some(texture_path) = flag_split.next() {
+								dep_asset_paths.push(Path::new(texture_path).to_owned().into());
+								let handle = load_context.get_handle(texture_path);
+								block_texture = Some(handle);
+							}
 						},
 						_ => {},
 					}
@@ -92,6 +100,18 @@ impl AssetLoader for LevelAssetLoader {
 					interaction: block_interaction,
 				}
 			}).collect::<Vec<Block>>();
+
+
+			let tilemap = Tilemap::builder()
+				.auto_chunk()
+				.topology(GridTopology::Square)
+				.dimensions(3, 3)
+				.chunk_dimensions(32, 32, 1)
+				.texture_dimensions(32, 35)
+				.z_layers(3)
+				//.texture_atlas(atlas_handle)
+				.finish()
+				.unwrap();
 
 			let level = LevelAsset {
 				name: lines[0].clone(),
@@ -116,10 +136,11 @@ impl AssetLoader for LevelAssetLoader {
 					lines[3].split("|").map(|s|*iden_map.get(&s).unwrap_or(&0)).collect::<Vec<usize>>() // Map char to index and collect into 3D array
 				)?,
 				blocks,
+				tilemap,
 			};
             //let custom_asset = ron::de::from_bytes::<CustomAsset>(bytes)?;
 			let loaded_asset = LoadedAsset::new(level);
-			//let loaded_asset = loaded_asset.with_dependencies(dep_asset_paths);
+			let loaded_asset = loaded_asset.with_dependencies(dep_asset_paths);
             load_context.set_default_asset(loaded_asset);
 
 			log::info!("Loaded Level");

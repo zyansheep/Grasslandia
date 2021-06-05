@@ -1,7 +1,8 @@
 #![allow(non_snake_case)]
 #![feature(try_blocks)]
 
-use bevy::{prelude::*, window::WindowResizeConstraints};
+use bevy::{asset::LoadState, prelude::*, sprite::TextureAtlasBuilder, window::WindowResizeConstraints};
+use bevy_tilemap::prelude::*;
 
 mod level;
 mod main_menu;
@@ -30,7 +31,7 @@ fn main() {
 			..Default::default()
 		})
 		.add_plugins(DefaultPlugins)
-		.add_state(GameState::InGame) // Starting Game State
+		.add_state(GameState::MainMenu) // Starting Game State
 		// Main Menu Systems
 		.init_resource::<main_menu::ButtonMaterials>()
 		.add_system_set(
@@ -44,6 +45,7 @@ fn main() {
 			SystemSet::on_exit(GameState::MainMenu).with_system(main_menu::exit.system()),
 		)
 		// Game Systems
+		.add_plugins(TilemapDefaultPlugins) // Tile Map Plugin
 		.add_asset::<level::LevelAsset>() // Level Asset
 		.init_asset_loader::<level::LevelAssetLoader>()
 		.init_resource::<InGameState>()
@@ -51,7 +53,8 @@ fn main() {
 		.add_system_set(
 			SystemSet::on_update(GameState::InGame)
 				.with_system(update_game.system())
-				.with_system(player_movement.system()),
+				.with_system(player_movement.system())
+				/* .with_system(level_loading.system()) */,
 		)
 		// Pause Menu
 		.add_system_set(
@@ -71,7 +74,8 @@ fn main() {
 struct InGameState {
 	current_level: Handle<LevelAsset>,
 	//next_level: Option<Handle<LevelAsset>>,
-	rendered: bool,
+	level_loaded: bool,
+	map_loaded: bool,
 }
 #[derive(Default)]
 struct Player {
@@ -86,12 +90,16 @@ fn setup_game(
 	mut state: ResMut<InGameState>,
 	mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
+	// Load Background
 	commands.spawn_bundle(SpriteBundle {
 		material: materials.add(asset_server.load("backgrounds/creepybackground.png").into()),
 		..Default::default()
 	});
+
+	// Load Level
 	state.current_level = asset_server.load::<LevelAsset, _>("game/levels/level0.glevel");
 
+	// Load Player
 	let texture_handle = asset_server.load("sprites/player/player_spritesheet.png");
 	let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(16.0, 48.0), 4, 4);
 	let texture_atlas_handle = texture_atlases.add(texture_atlas);
@@ -107,8 +115,105 @@ fn setup_game(
 	commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 
 	asset_server.watch_for_changes().unwrap();
+
+
+	asset_server.load::<Texture, _>("tiles/misc/gem.png");
 	log::info!("Wake up...");
 }
+/* fn level_loading(
+	mut commands: Commands,
+	mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+	mut textures: ResMut<Assets<Texture>>,
+	mut levels: Res<Assets<LevelAsset>>,
+	asset_server: Res<AssetServer>,
+	mut state: ResMut<InGameState>,
+) {
+	if !state.level_loaded { return; }
+	if state.map_loaded { return; }
+
+	// Lets load all our textures from our folder!
+	let mut texture_atlas_builder = TextureAtlasBuilder::default();
+	if let Some(level) = levels.get(state.current_level.clone_weak()) {
+
+		/* for handle in sprite_handles.handles.iter() {
+			let texture = textures.get(handle).unwrap();
+			texture_atlas_builder.add_texture(handle.clone_weak().typed::<Texture>(), &texture);
+		} */
+		//textures.(floor);
+		
+		//let texture_atlas = texture_atlas_builder.finish(&mut textures).unwrap();
+		let floor = textures.get(level.blocks[2].texture.clone().unwrap()).unwrap();
+		texture_atlas_builder.add_texture(level.blocks[2].texture.clone().unwrap(), floor);
+		let texture_atlas = texture_atlas_builder.into();
+		let atlas_handle = texture_atlases.add(texture_atlas);
+
+		let mut map = Tilemap::builder()
+			.auto_chunk()
+			.topology(GridTopology::Square)
+			.dimensions(3, 3)
+			.chunk_dimensions(8, 4, 1)
+			.texture_dimensions(32, 35)
+			.z_layers(3)
+			.texture_atlas(atlas_handle)
+			.finish()
+			.unwrap();
+		
+		// Setting Tiles
+		let chunk_width = (map.width().unwrap() * map.chunk_width()) as i32;
+		let chunk_height = (map.height().unwrap() * map.chunk_height()) as i32;
+
+		let floor = level.blocks[2].texture.clone().unwrap();
+		let texture_atlas = texture_atlases.get(map.texture_atlas()).unwrap();
+		println!("{:?}", texture_atlas);
+		let floor_index = texture_atlas.get_texture_index(&floor).unwrap();
+
+		let mut tiles = Vec::new();
+		for y in 0..chunk_height {
+			for x in 0..chunk_width {
+				let y = y - chunk_height / 2;
+				let x = x - chunk_width / 2;
+				let tile = Tile {
+					point: (x, y),
+					sprite_index: floor_index,
+					..Default::default()
+				};
+				tiles.push(tile);
+			}
+		}
+		map.insert_tiles(tiles).unwrap();
+
+		map.spawn_chunk((-1, 0)).unwrap();
+		map.spawn_chunk((0, 0)).unwrap();
+		map.spawn_chunk((1, 0)).unwrap();
+		map.spawn_chunk((-1, 1)).unwrap();
+		map.spawn_chunk((0, 1)).unwrap();
+		map.spawn_chunk((1, 1)).unwrap();
+		map.spawn_chunk((-1, -1)).unwrap();
+		map.spawn_chunk((0, -1)).unwrap();
+		map.spawn_chunk((1, -1)).unwrap();
+
+		let tilemap_components = TilemapBundle {
+			tilemap: map,
+			visible: Visible {
+				is_visible: true,
+				is_transparent: true,
+			},
+			transform: Default::default(),
+			global_transform: Default::default(),
+		};
+
+		commands
+			.spawn()
+			.insert_bundle(OrthographicCameraBundle::new_2d());
+		commands
+			.spawn()
+			.insert_bundle(tilemap_components)
+			.insert(Timer::from_seconds(0.075, true));
+
+		// Signal that level is loaded
+		state.map_loaded = true;
+	}
+} */
 
 fn update_game(
 	mut state: ResMut<InGameState>,
@@ -121,7 +226,7 @@ fn update_game(
 				let level = levels.get(handle).unwrap();
 				if *handle == state.current_level {
 					println!("Correct Level Loaded: {:?}", level);
-					state.rendered = true;
+					state.level_loaded = true;
 				}
 			}
 			AssetEvent::Removed { .. } => {
@@ -131,11 +236,17 @@ fn update_game(
 	}
 }
 fn player_movement(
-	mut player: Query<(&mut Transform, &mut Player, &mut Timer, &mut TextureAtlasSprite)>,
+	mut player: Query<(
+		&mut Transform,
+		&mut Player,
+		&mut Timer,
+		&mut TextureAtlasSprite,
+	)>,
 	keys: Res<Input<KeyCode>>,
 	time: Res<Time>,
 ) {
-	let (mut player_transform, mut player, mut player_anim_timer, mut player_sprite) = player.single_mut().unwrap();
+	let (mut player_transform, mut player, mut player_anim_timer, mut player_sprite) =
+		player.single_mut().unwrap();
 	let speed = 10.0;
 	if keys.pressed(KeyCode::Up) {
 		player.direction = 0;
